@@ -52,12 +52,15 @@ export function AuthButton() {
       setAuthenticated(true)
       setIsOpen(false)
       setApiKey("")
-      window.location.reload()
+
+      // Don't reload the page, just update the state
+      // This avoids potential issues with Cloudflare
+      checkAuth()
     } catch (error) {
       console.error(error)
       toast({
         title: "Authentication Failed",
-        description: "Invalid API key",
+        description: "Invalid API key or server error",
         variant: "destructive",
       })
     } finally {
@@ -72,13 +75,19 @@ export function AuthButton() {
       title: "Logged Out",
       description: "You have been logged out successfully",
     })
-    window.location.reload()
+
+    // Don't reload the page, just update the state
+    checkAuth()
   }
 
   const handleCreateOneTimeKey = async () => {
     try {
       const response = await fetch("/auth/key/create", {
         method: "POST",
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
       })
 
       if (!response.ok) throw new Error("Failed to create one-time key")
@@ -90,9 +99,10 @@ export function AuthButton() {
         description: `Your key: ${data.key}`,
       })
     } catch (error) {
+      console.error("Error creating one-time key:", error)
       toast({
         title: "Error",
-        description: "Failed to create one-time key",
+        description: "Failed to create one-time key. Please try again.",
         variant: "destructive",
       })
     }

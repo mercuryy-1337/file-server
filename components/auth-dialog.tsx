@@ -45,11 +45,12 @@ export function AuthDialog({ isOpen, onClose, onSuccess }: AuthDialogProps) {
       })
 
       onSuccess()
+      setApiKey("")
     } catch (error) {
       console.error(error)
       toast({
         title: "Authentication Failed",
-        description: "Invalid API key",
+        description: "Invalid API key or server error",
         variant: "destructive",
       })
     } finally {
@@ -61,6 +62,10 @@ export function AuthDialog({ isOpen, onClose, onSuccess }: AuthDialogProps) {
     try {
       const response = await fetch("/auth/key/create", {
         method: "POST",
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
       })
 
       if (!response.ok) throw new Error("Failed to create one-time key")
@@ -72,9 +77,10 @@ export function AuthDialog({ isOpen, onClose, onSuccess }: AuthDialogProps) {
         description: `Your key: ${data.key}`,
       })
     } catch (error) {
+      console.error("Error creating one-time key:", error)
       toast({
         title: "Error",
-        description: "Failed to create one-time key",
+        description: "Failed to create one-time key. Please try again.",
         variant: "destructive",
       })
     }

@@ -8,42 +8,35 @@ export const isAuthenticated = async (): Promise<boolean> => {
   const key = localStorage.getItem(AUTH_KEY)
   if (!key) return false
 
-  // Validate the key with the server
-  try {
-    const response = await fetch("/api/validate-key", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-    })
-
-    return response.ok
-  } catch (error) {
-    console.error("Error validating API key:", error)
-    return false
-  }
+  return true
 }
 
 // Login function to store the API key
 export const login = async (apiKey: string): Promise<void> => {
   if (typeof window === "undefined") return
 
-  // Validate the key with the server before storing it
-  const response = await fetch("/api/validate-key", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-  })
+  try {
+    // Validate the key with the server before storing it
+    const response = await fetch("/api/validate-key", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      // Add cache control to prevent caching issues
+      cache: "no-store",
+    })
 
-  if (!response.ok) {
-    throw new Error("Invalid API key")
+    if (!response.ok) {
+      throw new Error("Invalid API key")
+    }
+
+    // Store the validated key
+    localStorage.setItem(AUTH_KEY, apiKey)
+  } catch (error) {
+    console.error("Authentication error:", error)
+    throw new Error("Authentication failed. Please try again.")
   }
-
-  // Store the validated key
-  localStorage.setItem(AUTH_KEY, apiKey)
 }
 
 // Logout function to remove the API key
@@ -51,4 +44,10 @@ export const logout = async (): Promise<void> => {
   if (typeof window === "undefined") return
 
   localStorage.removeItem(AUTH_KEY)
+}
+
+// Get the stored API key
+export const getApiKey = (): string | null => {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem(AUTH_KEY)
 }
