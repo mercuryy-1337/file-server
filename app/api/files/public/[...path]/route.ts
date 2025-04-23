@@ -11,8 +11,8 @@ export async function GET(request: NextRequest, { params }: { params: { path: st
     const requestPath = params.path ? params.path.join("/") : ""
     const fullPath = path.join(BASE_DIR, requestPath)
 
-    console.log("Requested path:", requestPath)
-    console.log("Full path:", fullPath)
+    //console.log("Requested path:", requestPath)
+    //console.log("Full path:", fullPath)
 
     // Check if the path exists
     try {

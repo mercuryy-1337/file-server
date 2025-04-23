@@ -52,6 +52,7 @@ export function AuthButton() {
       setAuthenticated(true)
       setIsOpen(false)
       setApiKey("")
+      window.location.reload()
     } catch (error) {
       console.error(error)
       toast({
@@ -71,6 +72,7 @@ export function AuthButton() {
       title: "Logged Out",
       description: "You have been logged out successfully",
     })
+    window.location.reload()
   }
 
   const handleCreateOneTimeKey = async () => {

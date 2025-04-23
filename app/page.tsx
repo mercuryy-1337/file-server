@@ -18,7 +18,7 @@ async function ensureFileStructure() {
 
     // List files to verify the directory exists and is accessible
     const files = await fs.readdir(BASE_DIR)
-    console.log("File structure ensured at:", BASE_DIR)
+    //console.log("File structure ensured at:", BASE_DIR)
     console.log("Files in directory:", files.length)
   } catch (error) {
     console.error("Error ensuring file structure:", error)

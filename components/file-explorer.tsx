@@ -2,7 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { File, Folder, FileText, ImageIcon, Video, ArrowLeft, RefreshCw, Trash2, ExternalLink } from "lucide-react"
+import {
+  File,
+  Folder,
+  FileText,
+  ImageIcon,
+  Video,
+  ArrowLeft,
+  RefreshCw,
+  Trash2,
+  ExternalLink,
+  Download,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { FileViewer } from "@/components/file-viewer"
@@ -141,6 +152,16 @@ export function FileExplorer({ path: initialPath = "/" }: { path?: string }) {
     }
   }
 
+  const handleDownloadFile = (file: FileItem) => {
+    // Create a link element
+    const link = document.createElement("a")
+    link.href = `/api/files/public${file.path}`
+    link.download = file.name
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const getFileIcon = (file: FileItem) => {
     if (file.type === "directory") return <Folder className="h-5 w-5 text-blue-500" />
 
@@ -237,13 +258,26 @@ export function FileExplorer({ path: initialPath = "/" }: { path?: string }) {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium truncate">{selectedFile.name}</h3>
               <div className="flex gap-2">
-                <Button variant="outline" size="icon" asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleDownloadFile(selectedFile)}
+                  title="Download file"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" asChild title="Open in new tab">
                   <a href={`/api/files/public${selectedFile.path}`} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4" />
                   </a>
                 </Button>
                 {authenticated && (
-                  <Button variant="outline" size="icon" onClick={() => handleDeleteFile(selectedFile.path)}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleDeleteFile(selectedFile.path)}
+                    title="Delete file"
+                  >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
                 )}
