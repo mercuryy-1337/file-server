@@ -13,12 +13,14 @@ import {
   Trash2,
   ExternalLink,
   Download,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { FileViewer } from "@/components/file-viewer"
 import { useToast } from "@/hooks/use-toast"
 import { isAuthenticated } from "@/lib/auth"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface FileItem {
   name: string
@@ -35,6 +37,7 @@ export function FileExplorer({ path: initialPath = "/" }: { path?: string }) {
   const { toast } = useToast()
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null)
   const [authenticated, setAuthenticated] = useState(false)
 
@@ -53,6 +56,7 @@ export function FileExplorer({ path: initialPath = "/" }: { path?: string }) {
 
   const fetchFiles = async () => {
     setLoading(true)
+    setError(null)
     try {
       // Normalize the path to ensure it starts with a slash
       const normalizedPath = currentPath.startsWith("/") ? currentPath : `/${currentPath}`
@@ -63,12 +67,20 @@ export function FileExplorer({ path: initialPath = "/" }: { path?: string }) {
       const endpoint = normalizedPath === "/" ? "/api/files/public" : `/api/files/public${normalizedPath}`
 
       console.log("Using endpoint:", endpoint)
-      const response = await fetch(endpoint)
+
+      // Add a timestamp to prevent caching issues
+      const timestamp = new Date().getTime()
+      const response = await fetch(`${endpoint}?t=${timestamp}`, {
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+      })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }))
         console.error("API error:", errorData)
-        throw new Error(errorData.error || "Failed to fetch files")
+        throw new Error(errorData.error || `Failed to fetch files (HTTP ${response.status})`)
       }
 
       const data = await response.json()
@@ -79,14 +91,11 @@ export function FileExplorer({ path: initialPath = "/" }: { path?: string }) {
       } else {
         console.error("Invalid files data:", data)
         setFiles([])
+        setError("Received invalid data from server")
       }
     } catch (error) {
       console.error("Error fetching files:", error)
-      toast({
-        title: "Error",
-        description: "Failed to fetch files. Check console for details.",
-        variant: "destructive",
-      })
+      setError(error instanceof Error ? error.message : "Unknown error occurred")
       setFiles([])
     } finally {
       setLoading(false)
@@ -205,12 +214,26 @@ export function FileExplorer({ path: initialPath = "/" }: { path?: string }) {
             </Button>
           </div>
 
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Error: {error}.{" "}
+                <Button variant="link" className="p-0 h-auto" onClick={fetchFiles}>
+                  Try again
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <RefreshCw className="h-8 w-8 animate-spin text-slate-500" />
             </div>
           ) : files.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">No files found in this directory</div>
+            <div className="text-center py-12 text-slate-500">
+              {error ? "Failed to load files" : "No files found in this directory"}
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {files.map((file) => (

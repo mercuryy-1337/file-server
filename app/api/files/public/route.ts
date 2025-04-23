@@ -7,7 +7,7 @@ const BASE_DIR = path.join(process.cwd(), "public/files")
 
 export async function GET() {
   try {
-    console.log("Accessing root directory:", BASE_DIR)
+    //console.log("Accessing root directory:", BASE_DIR)
 
     // Check if the directory exists
     try {
@@ -66,7 +66,17 @@ export async function GET() {
         }),
       )
 
-      return NextResponse.json({ files: fileDetails })
+      // Set cache control headers to prevent caching issues
+      return NextResponse.json(
+        { files: fileDetails },
+        {
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        },
+      )
     } else {
       return NextResponse.json({ error: "Root path is not a directory" }, { status: 500 })
     }
