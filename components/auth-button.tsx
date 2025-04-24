@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Key, LogOut, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { isAuthenticated, login, logout } from "@/lib/auth"
+import { apiPost } from "@/lib/api-client"
 
 export function AuthButton() {
   const [isOpen, setIsOpen] = useState(false)
@@ -25,6 +25,15 @@ export function AuthButton() {
   const checkAuth = async () => {
     const auth = await isAuthenticated()
     setAuthenticated(auth)
+  }
+
+  const safeRefresh = () => {
+    setTimeout(() => {
+      // Add cache busting parameter to the URL
+      const url = new URL(window.location.href)
+      url.searchParams.set("_t", Date.now().toString())
+      window.location.href = url.toString()
+    }, 1000)
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -53,9 +62,8 @@ export function AuthButton() {
       setIsOpen(false)
       setApiKey("")
 
-      // Don't reload the page, just update the state
-      // This avoids potential issues with Cloudflare
-      checkAuth()
+      // Safely refresh the page
+      safeRefresh()
     } catch (error) {
       console.error(error)
       toast({
@@ -76,19 +84,13 @@ export function AuthButton() {
       description: "You have been logged out successfully",
     })
 
-    // Don't reload the page, just update the state
-    checkAuth()
+    // Safely refresh the page
+    safeRefresh()
   }
 
   const handleCreateOneTimeKey = async () => {
     try {
-      const response = await fetch("/auth/key/create", {
-        method: "POST",
-        headers: {
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
-      })
+      const response = await apiPost("/auth/key/create")
 
       if (!response.ok) throw new Error("Failed to create one-time key")
 

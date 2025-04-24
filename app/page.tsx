@@ -7,18 +7,17 @@ import { Loader2 } from "lucide-react"
 import fs from "fs/promises"
 import path from "path"
 
-// Ensure file structure exists directly
 async function ensureFileStructure() {
   try {
-    // Base directory for files
     const BASE_DIR = path.join(process.cwd(), "public/files")
+    const TEMP_DIR = path.join(process.cwd(), "tmp/uploads")
 
-    // Create the directory if it doesn't exist
+    // Create the directories if they don't exist
     await fs.mkdir(BASE_DIR, { recursive: true })
+    await fs.mkdir(TEMP_DIR, { recursive: true })
 
     // List files to verify the directory exists and is accessible
     const files = await fs.readdir(BASE_DIR)
-    //console.log("File structure ensured at:", BASE_DIR)
     console.log("Files in directory:", files.length)
   } catch (error) {
     console.error("Error ensuring file structure:", error)
