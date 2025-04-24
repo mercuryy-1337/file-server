@@ -9,13 +9,12 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  
-  // Configure image domains if needed
   images: {
     domains: ['localhost'],
     unoptimized: true,
   },
   
+  // Add headers to allow the application to work behind a proxy
   async headers() {
     return [
       {
@@ -54,6 +53,19 @@ const nextConfig = {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
           },
+          {
+            key: 'Content-Type',
+            value: 'application/javascript; charset=utf-8',
+          },
+        ],
+      },
+      {
+        source: '/_next/static/css/(.*)',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'text/css; charset=utf-8',
+          },
         ],
       },
       {
@@ -71,9 +83,9 @@ const nextConfig = {
       },
     ]
   },
-  
-  output: 'standalone',
 
+  output: 'standalone',
+  
   
   // Increase the webpack buffer size for large files
   webpack: (config, { isServer }) => {
@@ -85,6 +97,17 @@ const nextConfig = {
     }
     
     return config
+  },
+
+  compress: true,
+
+  // Add poweredByHeader to false to remove the X-Powered-By header
+  poweredByHeader: false,
+
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '500mb',
+    },
   },
 }
 

@@ -68,13 +68,13 @@ export function FileExplorer({ path: initialPath = "/" }: { path?: string }) {
 
       console.log("Using endpoint:", endpoint)
 
-      // Add a timestamp to prevent caching issues
-      const timestamp = new Date().getTime()
-      const response = await fetch(`${endpoint}?t=${timestamp}`, {
+      // Use our API client with retry logic
+      const response = await fetch(`${endpoint}?t=${Date.now()}`, {
         headers: {
           "Cache-Control": "no-cache",
           Pragma: "no-cache",
         },
+        next: { revalidate: 0 },
       })
 
       if (!response.ok) {
