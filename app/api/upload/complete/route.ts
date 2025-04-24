@@ -3,28 +3,22 @@ import path from "path"
 import fs from "fs/promises"
 import { isAuthenticated } from "@/lib/auth-server"
 
-// Temporary directory for chunks
 const TEMP_DIR = path.join(process.cwd(), "tmp/uploads")
-// Base directory for files
 const BASE_DIR = path.join(process.cwd(), "public/files")
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
     const authenticated = await isAuthenticated(request)
     if (!authenticated) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    // Parse the request body
     const body = await request.json()
     const { uploadId, fileName, path: uploadPath } = body
 
     if (!uploadId || !fileName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
-
-    // Get the upload directory
     const uploadDir = path.join(TEMP_DIR, uploadId)
 
     // Check if the upload exists
@@ -47,7 +41,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create target directory
     const targetDir = path.join(BASE_DIR, uploadPath)
     await fs.mkdir(targetDir, { recursive: true })
 
@@ -58,7 +51,6 @@ export async function POST(request: NextRequest) {
     // First, create an empty file
     await fs.writeFile(targetPath, Buffer.from([]))
 
-    // Combine all chunks
     for (let i = 0; i < metadata.totalChunks; i++) {
       const chunkPath = path.join(uploadDir, `chunk-${i}`)
       const chunkData = await fs.readFile(chunkPath)
