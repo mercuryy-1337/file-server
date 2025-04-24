@@ -53,7 +53,10 @@ export async function POST(request: NextRequest) {
 
     // Create the final file
     const targetPath = path.join(targetDir, fileName)
-    const writeStream = fs.createWriteStream(targetPath)
+
+    // Instead of using streams, let's use a simpler approach with fs.promises
+    // First, create an empty file
+    await fs.writeFile(targetPath, Buffer.from([]))
 
     // Combine all chunks
     for (let i = 0; i < metadata.totalChunks; i++) {

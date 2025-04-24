@@ -16,7 +16,6 @@ const nextConfig = {
     unoptimized: true,
   },
   
-  // Add headers to allow the application to work behind a proxy
   async headers() {
     return [
       {
@@ -34,14 +33,47 @@ const nextConfig = {
             key: 'X-XSS-Protection',
             value: '1; mode=block',
           },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, OPTIONS, PUT, DELETE',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+          },
+        ],
+      },
+      {
+        source: '/_next/static/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/api/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, max-age=0',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
         ],
       },
     ]
   },
   
-  // Configure output for better compatibility
   output: 'standalone',
-  
+
   
   // Increase the webpack buffer size for large files
   webpack: (config, { isServer }) => {

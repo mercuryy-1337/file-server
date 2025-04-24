@@ -11,6 +11,11 @@ mkdir -p .next/standalone/public
 echo "Copying public files..."
 cp -r public .next/standalone/
 
+# Copy our custom server to the standalone directory
+echo "Copying custom server..."
+cp server.js .next/standalone/
+
 # Start the server
 echo "Starting the server..."
-node .next/standalone/server.js
+cd .next/standalone
+node server.js
