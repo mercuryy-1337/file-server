@@ -22,12 +22,15 @@ export function FilePreview({ file }: FilePreviewProps) {
 
     const fetchFileContent = async () => {
       try {
+        // Get API key if available, but don't require it
         const apiKey = localStorage.getItem("fileServerApiKey")
-        const response = await fetch(`/api/browse${file.path}`, {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-          },
-        })
+
+        const headers: HeadersInit = {}
+        if (apiKey) {
+          headers["Authorization"] = `Bearer ${apiKey}`
+        }
+
+        const response = await fetch(`/api/browse${file.path}`, { headers })
 
         if (!response.ok) {
           throw new Error(`Failed to fetch file: ${response.statusText}`)

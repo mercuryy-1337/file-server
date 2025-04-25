@@ -6,23 +6,18 @@ export async function GET(request: Request) {
     const path = searchParams.get("path") || ""
     const authHeader = request.headers.get("Authorization")
 
-    if (!authHeader) {
-      return NextResponse.json({
-        status: 401,
-        error: "Authentication required",
-      })
-    }
-
     const backendUrl = process.env.BACKEND_URL || "http://localhost:5000"
 
     // Use the base endpoint for root directory, and path-specific endpoint for subdirectories
     const endpoint = path ? `${backendUrl}/api/v1/browse/${path}` : `${backendUrl}/api/v1/browse`
 
-    const response = await fetch(endpoint, {
-      headers: {
-        Authorization: authHeader,
-      },
-    })
+    // For browsing, we don't require authentication
+    const headers: HeadersInit = {}
+    if (authHeader) {
+      headers["Authorization"] = authHeader
+    }
+
+    const response = await fetch(endpoint, { headers })
 
     // If the response is JSON, return it
     const contentType = response.headers.get("Content-Type")

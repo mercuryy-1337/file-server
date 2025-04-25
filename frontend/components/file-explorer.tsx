@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import type { FileItem } from "@/types/file"
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface FileExplorerProps {
   files: FileItem[]
@@ -18,6 +19,7 @@ interface FileExplorerProps {
   onDeleteItem: (item: FileItem) => void
   onNavigateUp: () => void
   setCurrentPath: (path: string) => void
+  isAuthenticated: boolean
 }
 
 export function FileExplorer({
@@ -30,6 +32,7 @@ export function FileExplorer({
   onDeleteItem,
   onNavigateUp,
   setCurrentPath,
+  isAuthenticated,
 }: FileExplorerProps) {
   const [newFolderName, setNewFolderName] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -107,27 +110,40 @@ export function FileExplorer({
             <ChevronUp className="h-4 w-4" />
           </Button>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                New Folder
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Folder</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <Input
-                  placeholder="Folder name"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                />
-                <Button onClick={handleCreateFolder}>Create</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={!isAuthenticated}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        New Folder
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create New Folder</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 pt-4">
+                        <Input
+                          placeholder="Folder name"
+                          value={newFolderName}
+                          onChange={(e) => setNewFolderName(e.target.value)}
+                        />
+                        <Button onClick={handleCreateFolder}>Create</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </TooltipTrigger>
+              {!isAuthenticated && (
+                <TooltipContent>
+                  <p>Sign in to create folders</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -159,17 +175,33 @@ export function FileExplorer({
                   <span className="text-xs text-slate-500 dark:text-slate-400 w-14 text-right">
                     {formatFileSize(file.size)}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDeleteItem(file)
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 text-slate-500 hover:text-red-500" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex-shrink-0"
+                            disabled={!isAuthenticated}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (isAuthenticated) {
+                                onDeleteItem(file)
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-slate-500 hover:text-red-500" />
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      {!isAuthenticated && (
+                        <TooltipContent>
+                          <p>Sign in to delete</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </li>
             ))}

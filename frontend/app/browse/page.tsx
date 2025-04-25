@@ -6,26 +6,26 @@ import { useToast } from "@/hooks/use-toast"
 import { FileExplorer } from "@/components/file-explorer"
 import { FilePreview } from "@/components/file-preview"
 import { Button } from "@/components/ui/button"
-import { Loader2, LogOut } from "lucide-react"
+import { Loader2, LogOut, LogIn } from "lucide-react"
 import type { FileItem } from "@/types/file"
+import Link from "next/link"
 
 export default function BrowsePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [currentPath, setCurrentPath] = useState("")
   const [files, setFiles] = useState<FileItem[]>([])
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
 
   useEffect(() => {
+    // Check if user is authenticated
     const apiKey = localStorage.getItem("fileServerApiKey")
-    if (!apiKey) {
-      router.push("/")
-      return
-    }
+    setIsAuthenticated(!!apiKey)
 
     fetchFiles(currentPath)
-  }, [currentPath, router])
+  }, [currentPath])
 
   const fetchFiles = async (path: string) => {
     setIsLoading(true)
@@ -35,21 +35,24 @@ export default function BrowsePage() {
       // Use the base endpoint for the root directory, and path-specific endpoint for subdirectories
       const endpoint = path ? `/api/browse?path=${path}` : `/api/browse`
 
-      const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
-      })
+      const headers: HeadersInit = {}
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`
+      }
+
+      const response = await fetch(endpoint, { headers })
 
       if (response.status === 401) {
-        toast({
-          title: "Authentication error",
-          description: "Your session has expired. Please sign in again.",
-          variant: "destructive",
-        })
-        localStorage.removeItem("fileServerApiKey")
-        router.push("/")
-        return
+        // Only show authentication error if user was previously authenticated
+        if (isAuthenticated) {
+          toast({
+            title: "Authentication error",
+            description: "Your session has expired. Please sign in again.",
+            variant: "destructive",
+          })
+          localStorage.removeItem("fileServerApiKey")
+          setIsAuthenticated(false)
+        }
       }
 
       const data = await response.json()
@@ -83,6 +86,15 @@ export default function BrowsePage() {
   }
 
   const handleCreateFolder = async (folderName: string) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to create folders",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!folderName.trim()) return
 
     try {
@@ -104,6 +116,14 @@ export default function BrowsePage() {
           description: "Folder created successfully",
         })
         fetchFiles(currentPath)
+      } else if (data.status === 401) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to create folders",
+          variant: "destructive",
+        })
+        setIsAuthenticated(false)
+        localStorage.removeItem("fileServerApiKey")
       } else {
         toast({
           title: "Error",
@@ -121,6 +141,15 @@ export default function BrowsePage() {
   }
 
   const handleDeleteItem = async (item: FileItem) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to delete files or folders",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const apiKey = localStorage.getItem("fileServerApiKey")
       const response = await fetch(`/api/delete?path=${item.path.substring(1)}`, {
@@ -141,6 +170,14 @@ export default function BrowsePage() {
           setSelectedFile(null)
         }
         fetchFiles(currentPath)
+      } else if (data.status === 401) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to delete files or folders",
+          variant: "destructive",
+        })
+        setIsAuthenticated(false)
+        localStorage.removeItem("fileServerApiKey")
       } else {
         toast({
           title: "Error",
@@ -159,7 +196,11 @@ export default function BrowsePage() {
 
   const handleLogout = () => {
     localStorage.removeItem("fileServerApiKey")
-    router.push("/")
+    setIsAuthenticated(false)
+    toast({
+      title: "Logged out",
+      description: "You have been logged out successfully",
+    })
   }
 
   const navigateUp = () => {
@@ -175,10 +216,19 @@ export default function BrowsePage() {
       <div className="max-w-7xl mx-auto w-full">
         <header className="bg-white dark:bg-slate-800 shadow-sm p-4 rounded-lg mb-6 flex justify-between items-center">
           <h1 className="text-xl font-bold text-slate-900 dark:text-white">File Server</h1>
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+          {isAuthenticated ? (
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          ) : (
+            <Link href="/">
+              <Button variant="outline" size="sm">
+                <LogIn className="h-4 w-4 mr-2" />
+                Sign In
+              </Button>
+            </Link>
+          )}
         </header>
 
         <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden">
@@ -194,6 +244,7 @@ export default function BrowsePage() {
                 onNavigateUp={navigateUp}
                 selectedFile={selectedFile}
                 setCurrentPath={setCurrentPath}
+                isAuthenticated={isAuthenticated}
               />
             </div>
 

@@ -1,13 +1,13 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
+import Link from "next/link"
 
 export default function Home() {
   const [apiKey, setApiKey] = useState("")
@@ -80,10 +80,27 @@ export default function Home() {
       <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-slate-800 rounded-xl shadow-lg">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">File Server</h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-400">Enter your API key to access your files</p>
+          <p className="mt-2 text-slate-600 dark:text-slate-400">Browse files or sign in to manage content</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+        <div className="flex flex-col space-y-4">
+          <Link href="/browse">
+            <Button variant="secondary" className="w-full">
+              Browse Files
+            </Button>
+          </Link>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-300 dark:border-slate-700" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-slate-800 px-2 text-slate-500 dark:text-slate-400">Or Sign In</span>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <Input
               id="apiKey"
