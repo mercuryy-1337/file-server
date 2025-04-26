@@ -1,7 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { File, Folder, ChevronUp, Plus, Trash2, Loader2, FileText, FileImage, FileVideo, FileJson } from "lucide-react"
+import {
+  File,
+  Folder,
+  ChevronUp,
+  Plus,
+  Trash2,
+  Loader2,
+  FileText,
+  FileImage,
+  FileVideo,
+  FileJson,
+  Check,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -158,53 +170,61 @@ export function FileExplorer({
           </div>
         ) : (
           <ul className="space-y-1">
-            {files.map((file) => (
-              <li
-                key={file.path}
-                className={cn(
-                  "flex items-center justify-between p-3 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer",
-                  selectedFile?.path === file.path && "bg-slate-100 dark:bg-slate-800",
-                )}
-                onClick={() => onFileSelect(file)}
-              >
-                <div className="flex items-center space-x-3 min-w-0 flex-1 overflow-hidden">
-                  {getFileIcon(file)}
-                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{file.name}</span>
-                </div>
-                <div className="flex items-center space-x-3 flex-shrink-0 ml-2">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 w-14 text-right">
-                    {formatFileSize(file.size)}
-                  </span>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="flex-shrink-0"
-                            disabled={!isAuthenticated}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (isAuthenticated) {
-                                onDeleteItem(file)
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-slate-500 hover:text-red-500" />
-                          </Button>
-                        </div>
-                      </TooltipTrigger>
-                      {!isAuthenticated && (
-                        <TooltipContent>
-                          <p>Sign in to delete</p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </li>
-            ))}
+            {files.map((file) => {
+              const isSelected = selectedFile?.path === file.path
+              return (
+                <li
+                  key={file.path}
+                  className={cn(
+                    "flex items-center justify-between p-3 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all",
+                    isSelected
+                      ? "bg-slate-200 dark:bg-slate-700 border-l-4 border-blue-500"
+                      : "border-l-4 border-transparent",
+                  )}
+                  onClick={() => onFileSelect(file)}
+                >
+                  <div className="flex items-center space-x-3 min-w-0 flex-1 overflow-hidden">
+                    <div className="relative">
+                      {getFileIcon(file)}
+                      {isSelected}
+                    </div>
+                    <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{file.name}</span>
+                  </div>
+                  <div className="flex items-center space-x-3 flex-shrink-0 ml-2">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 w-14 text-right">
+                      {formatFileSize(file.size)}
+                    </span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex-shrink-0"
+                              disabled={!isAuthenticated}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (isAuthenticated) {
+                                  onDeleteItem(file)
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-slate-500 hover:text-red-500" />
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        {!isAuthenticated && (
+                          <TooltipContent>
+                            <p>Sign in to delete</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>
