@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import type { FileItem } from "@/types/file"
-import { Loader2 } from "lucide-react"
+import { Loader2, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
 
 interface FilePreviewProps {
   file: FileItem
@@ -30,7 +31,9 @@ export function FilePreview({ file }: FilePreviewProps) {
           headers["Authorization"] = `Bearer ${apiKey}`
         }
 
-        const response = await fetch(`/api/browse${file.path}`, { headers })
+        // Use the correct path format for the API
+        const path = file.path.startsWith("/") ? file.path.substring(1) : file.path
+        const response = await fetch(`/api/browse?path=${path}`, { headers })
 
         if (!response.ok) {
           throw new Error(`Failed to fetch file: ${response.statusText}`)
@@ -72,6 +75,57 @@ export function FilePreview({ file }: FilePreviewProps) {
       }
     }
   }, [file, toast])
+
+  const handleDownload = async () => {
+    try {
+      setIsLoading(true)
+
+      // Get API key if available, but don't require it
+      const apiKey = localStorage.getItem("fileServerApiKey")
+
+      const headers: HeadersInit = {}
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`
+      }
+
+      // Use the correct path format for the API
+      const path = file.path.startsWith("/") ? file.path.substring(1) : file.path
+      const response = await fetch(`/api/browse?path=${path}`, { headers })
+
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.statusText}`)
+      }
+
+      const blob = await response.blob()
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.style.display = "none"
+      a.href = url
+      a.download = file.name
+      document.body.appendChild(a)
+      a.click()
+
+      // Clean up
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast({
+        title: "Success",
+        description: "File downloaded successfully",
+      })
+    } catch (error) {
+      console.error("Error downloading file:", error)
+      toast({
+        title: "Error",
+        description: "Failed to download file",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -156,11 +210,20 @@ export function FilePreview({ file }: FilePreviewProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="mb-4 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{file.name}</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          {file.mimeType} • {formatFileSize(file.size)}
-        </p>
+      <div className="mb-4 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{file.name}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {file.mimeType} • {formatFileSize(file.size)}
+          </p>
+        </div>
+        {/* Always show download button for files */}
+        {file.type !== "directory" && (
+          <Button variant="outline" size="sm" onClick={handleDownload} className="flex items-center gap-1">
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
+        )}
       </div>
       <div className="flex-1 overflow-auto">{renderContent()}</div>
     </div>
