@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Download, Loader2 } from "lucide-react"
 import Image from "next/image"
-import { Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface FileItem {
   name: string
@@ -13,10 +14,23 @@ interface FileItem {
   path: string
 }
 
+// Helper function to format file size
+const formatFileSize = (bytes?: number): string => {
+  if (bytes === undefined) return "Unknown size"
+
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
+
 export function FileViewer({ file }: { file: FileItem }) {
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Define the size limit for video previews (1GB)
+  const VIDEO_PREVIEW_SIZE_LIMIT = 1 * 1024 * 1024 * 1024
 
   useEffect(() => {
     if (file.type === "file") {
@@ -74,6 +88,27 @@ export function FileViewer({ file }: { file: FileItem }) {
 
     // Video files
     if (extension === ".mp4" || extension === ".mov") {
+      // Check if the file size is larger than the limit (1GB)
+      if (file.size && file.size > VIDEO_PREVIEW_SIZE_LIMIT) {
+        return (
+          <div className="flex flex-col items-center justify-center h-64 text-center p-4 bg-slate-100 dark:bg-slate-800 rounded-md">
+            <p className="text-slate-700 dark:text-slate-300 mb-2">
+              This video is {formatFileSize(file.size)} and is too large to preview.
+            </p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">
+              Videos larger than 1GB cannot be previewed to conserve resources.
+            </p>
+            <Button variant="outline" size="sm" asChild>
+              <a href={`/api/files/public${file.path}`} download={file.name}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Video
+              </a>
+            </Button>
+          </div>
+        )
+      }
+
+      // If the file is under the size limit, show the video player
       return (
         <video controls className="w-full h-auto max-h-64">
           <source src={`/api/files/public${file.path}`} type={file.mimeType || `video/${extension.substring(1)}`} />
