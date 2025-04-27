@@ -2,12 +2,15 @@ import { type NextRequest, NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
 import { existsSync, createReadStream, createWriteStream } from "fs"
-import { pipeline } from "stream/promises"
 import { isAuthenticated } from "@/lib/auth-server"
+import { EventEmitter } from "events"
 
 // Base directory for files
 const BASE_DIR = path.join(process.cwd(), "public/files")
 const TEMP_DIR = path.join(process.cwd(), "tmp/uploads")
+
+// Increase max listeners for EventEmitter to prevent warnings
+EventEmitter.defaultMaxListeners = 20
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,26 +41,39 @@ export async function POST(request: NextRequest) {
     // Create write stream for the final file
     const writeStream = createWriteStream(finalFilePath)
 
-    // Combine all chunks
-    for (let i = 0; i < totalChunks; i++) {
-      const chunkPath = path.join(fileChunkDir, `chunk-${i}`)
+    try {
+      // Combine all chunks
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkPath = path.join(fileChunkDir, `chunk-${i}`)
 
-      // Check if chunk exists
-      if (!existsSync(chunkPath)) {
-        await fs.rm(fileChunkDir, { recursive: true, force: true })
-        return NextResponse.json({ error: `Chunk ${i} is missing` }, { status: 400 })
+        // Check if chunk exists
+        if (!existsSync(chunkPath)) {
+          writeStream.end() // Close the stream before returning
+          await fs.rm(fileChunkDir, { recursive: true, force: true }).catch(console.error)
+          return NextResponse.json({ error: `Chunk ${i} is missing` }, { status: 400 })
+        }
+
+        // Read the chunk and append to final file
+        const readStream = createReadStream(chunkPath)
+        await new Promise<void>((resolve, reject) => {
+          readStream.pipe(writeStream, { end: false })
+          readStream.on("end", () => resolve())
+          readStream.on("error", (err) => {
+            readStream.destroy()
+            reject(err)
+          })
+        })
+
+        // Delete the chunk after it's been processed to free up memory
+        await fs.unlink(chunkPath).catch(console.error)
       }
-
-      // Read the chunk and append to final file
-      const readStream = createReadStream(chunkPath)
-      await pipeline(readStream, writeStream, { end: false })
+    } finally {
+      // Ensure the write stream is closed properly
+      writeStream.end()
     }
 
-    // Close the write stream
-    writeStream.end()
-
-    // Clean up chunks
-    await fs.rm(fileChunkDir, { recursive: true, force: true })
+    // Clean up chunks directory
+    await fs.rm(fileChunkDir, { recursive: true, force: true }).catch(console.error)
 
     // Get file size
     const stats = await fs.stat(finalFilePath)

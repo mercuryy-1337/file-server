@@ -28,8 +28,18 @@ export function UploadButton() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
+  // Abort controller for cancelling uploads
+  const abortControllerRef = useRef<AbortController | null>(null)
+
   useEffect(() => {
     checkAuth()
+
+    // Cleanup function to abort any in-progress uploads when component unmounts
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [])
 
   const checkAuth = async () => {
@@ -60,30 +70,40 @@ export function UploadButton() {
 
     setUploadStatus(`Preparing to upload in ${totalChunks} chunks`)
 
-    // Upload each chunk
-    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-      const start = chunkIndex * CHUNK_SIZE
-      const end = Math.min(file.size, start + CHUNK_SIZE)
-      const chunk = file.slice(start, end)
+    // Create a new abort controller for this upload
+    abortControllerRef.current = new AbortController()
+    const { signal } = abortControllerRef.current
 
-      setUploadStatus(`Uploading chunk ${chunkIndex + 1} of ${totalChunks}`)
+    try {
+      // Upload each chunk
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        // Check if upload was aborted
+        if (signal.aborted) {
+          throw new Error("Upload aborted")
+        }
 
-      // Create form data for this chunk
-      const formData = new FormData()
-      formData.append("fileId", fileId)
-      formData.append("fileName", file.name)
-      formData.append("chunkIndex", chunkIndex.toString())
-      formData.append("totalChunks", totalChunks.toString())
-      formData.append("path", path)
-      formData.append("chunk", chunk)
+        const start = chunkIndex * CHUNK_SIZE
+        const end = Math.min(file.size, start + CHUNK_SIZE)
+        const chunk = file.slice(start, end)
 
-      try {
+        setUploadStatus(`Uploading chunk ${chunkIndex + 1} of ${totalChunks}`)
+
+        // Create form data for this chunk
+        const formData = new FormData()
+        formData.append("fileId", fileId)
+        formData.append("fileName", file.name)
+        formData.append("chunkIndex", chunkIndex.toString())
+        formData.append("totalChunks", totalChunks.toString())
+        formData.append("path", path)
+        formData.append("chunk", chunk)
+
         const response = await fetch("/api/upload-chunk", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,
           },
           body: formData,
+          signal, // Pass the abort signal
         })
 
         if (!response.ok) {
@@ -93,34 +113,43 @@ export function UploadButton() {
         // Update progress
         const percentComplete = Math.round(((chunkIndex + 1) / totalChunks) * 100)
         setUploadProgress(percentComplete)
-      } catch (error) {
-        console.error(`Error uploading chunk ${chunkIndex}:`, error)
-        throw error
+
+        // Small delay to prevent UI freezing and allow for better progress visualization
+        await new Promise((resolve) => setTimeout(resolve, 10))
       }
+
+      // All chunks uploaded, now tell the server to combine them
+      setUploadStatus("Finalizing upload...")
+
+      const finalizeResponse = await fetch("/api/finalize-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          fileId,
+          fileName: file.name,
+          totalChunks,
+          path,
+        }),
+        signal, // Pass the abort signal
+      })
+
+      if (!finalizeResponse.ok) {
+        throw new Error("Failed to finalize upload")
+      }
+
+      return finalizeResponse.json()
+    } catch (error) {
+      if (signal.aborted) {
+        throw new Error("Upload was cancelled")
+      }
+      throw error
+    } finally {
+      // Clear the abort controller reference
+      abortControllerRef.current = null
     }
-
-    // All chunks uploaded, now tell the server to combine them
-    setUploadStatus("Finalizing upload...")
-
-    const finalizeResponse = await fetch("/api/finalize-upload", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        fileId,
-        fileName: file.name,
-        totalChunks,
-        path,
-      }),
-    })
-
-    if (!finalizeResponse.ok) {
-      throw new Error("Failed to finalize upload")
-    }
-
-    return finalizeResponse.json()
   }
 
   const uploadFile = async (file: File, path: string): Promise<any> => {
@@ -139,37 +168,53 @@ export function UploadButton() {
     formData.append("path", path)
     formData.append("files", file)
 
-    // Track upload progress for smaller files too
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest()
+    // Create a new abort controller for this upload
+    abortControllerRef.current = new AbortController()
+    const { signal } = abortControllerRef.current
 
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = Math.round((event.loaded / event.total) * 100)
-          setUploadProgress(percentComplete)
-        }
-      })
+    try {
+      // Track upload progress for smaller files too
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
 
-      xhr.addEventListener("load", () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText)
-            resolve(response)
-          } catch (e) {
-            reject(new Error("Invalid response format"))
+        xhr.upload.addEventListener("progress", (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100)
+            setUploadProgress(percentComplete)
           }
-        } else {
-          reject(new Error(`Upload failed with status ${xhr.status}`))
+        })
+
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText)
+              resolve(response)
+            } catch (e) {
+              reject(new Error("Invalid response format"))
+            }
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`))
+          }
+        })
+
+        xhr.addEventListener("error", () => reject(new Error("Network error")))
+        xhr.addEventListener("abort", () => reject(new Error("Upload aborted")))
+
+        // Handle abort signal
+        if (signal) {
+          signal.addEventListener("abort", () => {
+            xhr.abort()
+          })
         }
+
+        xhr.open("POST", "/api/upload", true)
+        xhr.setRequestHeader("Authorization", `Bearer ${apiKey}`)
+        xhr.send(formData)
       })
-
-      xhr.addEventListener("error", () => reject(new Error("Network error")))
-      xhr.addEventListener("abort", () => reject(new Error("Upload aborted")))
-
-      xhr.open("POST", "/api/upload", true)
-      xhr.setRequestHeader("Authorization", `Bearer ${apiKey}`)
-      xhr.send(formData)
-    })
+    } finally {
+      // Clear the abort controller reference
+      abortControllerRef.current = null
+    }
   }
 
   const handleUpload = async (files: FileList | null) => {
@@ -222,6 +267,13 @@ export function UploadButton() {
     }
   }
 
+  const handleCancelUpload = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      setUploadStatus("Cancelling upload...")
+    }
+  }
+
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -252,7 +304,21 @@ export function UploadButton() {
 
       <AuthDialog isOpen={isAuthDialogOpen} onClose={() => setIsAuthDialogOpen(false)} onSuccess={handleAuthSuccess} />
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          // Prevent closing dialog during upload
+          if (isUploading && !open) {
+            const shouldCancel = window.confirm("Cancel the current upload?")
+            if (shouldCancel) {
+              handleCancelUpload()
+            } else {
+              return
+            }
+          }
+          setIsOpen(open)
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Upload Files</DialogTitle>
@@ -276,7 +342,10 @@ export function UploadButton() {
                 <div className="w-full mb-2">
                   <Progress value={uploadProgress} className="h-2 w-full" />
                 </div>
-                <p className="text-xs text-slate-500">{uploadProgress}% complete</p>
+                <p className="text-xs text-slate-500 mb-4">{uploadProgress}% complete</p>
+                <Button variant="outline" size="sm" onClick={handleCancelUpload} className="mt-2">
+                  Cancel Upload
+                </Button>
               </div>
             ) : (
               <>
