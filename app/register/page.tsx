@@ -190,7 +190,14 @@ export default function RegisterPage() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Create account"}
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-purple-600 animate-spin" />
+                    Creating account...
+                  </div>
+                ) : (
+                  "Create account"
+                )}
               </Button>
             </form>
           </Form>

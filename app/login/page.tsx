@@ -119,7 +119,14 @@ export default function LoginPage() {
                 </Link>
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign in"}
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-t-transparent border-purple-600 animate-spin" />
+                    Signing in...
+                  </div>
+                ) : (
+                  "Sign in"
+                )}
               </Button>
             </form>
           </Form>

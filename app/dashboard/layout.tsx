@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { Header } from "@/components/dashboard/header"
 import { Sidebar } from "@/components/dashboard/sidebar"
+import { PageTransition } from "@/components/page-transition"
 
 export default async function DashboardLayout({
   children,
@@ -16,6 +17,7 @@ export default async function DashboardLayout({
     redirect("/login?callbackUrl=/dashboard")
   }
 
+  // Wrap the children with the PageTransition component
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -23,7 +25,9 @@ export default async function DashboardLayout({
         <aside className="hidden w-64 border-r md:block">
           <Sidebar />
         </aside>
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
     </div>
   )

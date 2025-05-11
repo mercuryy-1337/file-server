@@ -48,6 +48,10 @@ export default async function FilesPage({
     },
   })
 
+  // Add this debug code right after the query to help diagnose the issue:
+  console.log(`Files query for path "${currentPath}": Found ${files.length} files`)
+  console.log(`User ID: ${userId}`)
+
   // Build breadcrumb paths
   const breadcrumbs = [{ name: "Home", path: "/" }]
   if (currentPath !== "/") {

@@ -6,7 +6,7 @@ export default function Loading() {
       <div className="flex items-center justify-center py-12">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-          <p className="text-sm text-muted-foreground">Loading settings...</p>
+          <p className="text-sm text-muted-foreground">Loading import page...</p>
         </div>
       </div>
     </div>
