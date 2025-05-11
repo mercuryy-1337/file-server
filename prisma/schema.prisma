@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  username  String   @unique
+  email     String   @unique
+  password  String
+  image     String?
+  isAdmin   Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files  File[]
+  shares Share[]
+
+  loginAttempts LoginAttempt?
+
+  passwordResets PasswordReset[]
+  bucketCredentials BucketCredential[]
+
+  @@map("users")
+}
+
+model File {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  extension   String
+  size        BigInt
+  objectName  String
+  path        String  @default("/")
+  isFolder    Boolean @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shares Share[] @relation("ShareFiles")
+
+  @@map("files")
+}
+
+model Share {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  files File[] @relation("ShareFiles")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("shares")
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  attempts  Int      @default(0)
+  lastAttempt DateTime?
+  lockedUntil DateTime?
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("login_attempts")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("password_resets")
+}
+
+model BucketCredential {
+  id            String   @id @default(cuid())
+  name          String
+  provider      String   // "aws", "minio", etc.
+  endpoint      String?
+  region        String?
+  accessKey     String
+  secretKey     String
+  bucket        String
+  isDefault     Boolean  @default(false)
+
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("bucket_credentials")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  action      String   // "upload", "download", "delete", "share", etc.
+  details     String?
+  ipAddress   String?
+  userAgent   String?
+  
+  userId      String?
+  
+  createdAt   DateTime @default(now())
+
+  @@map("activity_logs")
+}
