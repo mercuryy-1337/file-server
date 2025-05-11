@@ -56,6 +56,16 @@ export function Sidebar({ className }: SidebarProps) {
                 Upload
               </Button>
             </Link>
+            <Link href="/dashboard/import">
+              <Button
+                variant={pathname === "/dashboard/import" ? "secondary" : "ghost"}
+                size="sm"
+                className="w-full justify-start"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+            </Link>
             <Link href="/dashboard/shared">
               <Button
                 variant={pathname === "/dashboard/shared" ? "secondary" : "ghost"}

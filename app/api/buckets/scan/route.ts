@@ -2,8 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
-import { getS3Client } from "@/lib/s3"
-import { extractFilenameFromObjectName, extractPathFromObjectName } from "@/lib/utils"
+import { createS3Client } from "@/lib/s3"
 import path from "path"
 
 export async function POST(req: Request) {
@@ -15,7 +14,7 @@ export async function POST(req: Request) {
     }
 
     const userId = session.user.id
-    const { bucketId } = await req.json()
+    const { bucketId, forceImport = false } = await req.json()
 
     // Get bucket credentials
     const bucketCredential = bucketId
@@ -36,9 +35,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Bucket not found" }, { status: 404 })
     }
 
-    // Create S3 client
-    const s3 = await getS3Client(userId)
-
+    // Create S3 client directly with credentials
+    const s3 = createS3Client({
+      provider: bucketCredential.provider,
+      endpoint: bucketCredential.endpoint || undefined,
+      region: bucketCredential.region || undefined,
+      accessKey: bucketCredential.accessKey,
+      secretKey: bucketCredential.secretKey,
+      bucket: bucketCredential.bucket,
+    })
+    
+    // List all objects in the bucket
     // List all objects in the bucket
     const { ListObjectsV2Command } = await import("@aws-sdk/client-s3")
     const listResult = await s3.client.send(
@@ -50,48 +57,80 @@ export async function POST(req: Request) {
     const objects = listResult.Contents || []
     let importedCount = 0
     let skippedCount = 0
+    const errors = []
+    const debugInfo = []
 
     // Process each object
     for (const object of objects) {
       if (!object.Key) continue
 
       // Skip folders (objects ending with /)
-      if (object.Key.endsWith("/")) continue
-
-      // Skip objects that don't belong to this user
-      if (!object.Key.startsWith(userId)) continue
-
-      // Check if file already exists in database
-      const existingFile = await prisma.file.findFirst({
-        where: {
-          userId,
-          objectName: object.Key,
-        },
-      })
-
-      if (existingFile) {
-        skippedCount++
+      if (object.Key.endsWith("/")) {
+        debugInfo.push(`Skipping folder: ${object.Key}`)
         continue
       }
 
-      // Extract filename and path
-      const filename = extractFilenameFromObjectName(object.Key)
-      const filePath = extractPathFromObjectName(object.Key)
-      const extension = path.extname(filename).substring(1)
+      // Don't filter by userId prefix - import all files
+      // Add debug info
+      debugInfo.push(`Processing object: ${object.Key}, Size: ${object.Size}`)
 
-      // Create file record in database
-      await prisma.file.create({
-        data: {
-          name: filename,
-          extension,
-          size: BigInt(object.Size || 0),
-          objectName: object.Key,
-          path: filePath,
-          userId,
-        },
-      })
+      try {
+        // Check if file already exists in database
+        const existingFile = await prisma.file.findFirst({
+          where: {
+            userId,
+            objectName: object.Key,
+          },
+        })
 
-      importedCount++
+        if (existingFile && !forceImport) {
+          skippedCount++
+          debugInfo.push(`Skipped existing file: ${object.Key}`)
+          continue
+        }
+
+        // Extract filename and extension
+        const filename = path.basename(object.Key)
+        const extension = path.extname(filename).substring(1)
+
+        // Determine path - everything before the filename
+        const filePath = object.Key.substring(0, object.Key.length - filename.length)
+        const normalizedPath = filePath ? `/${filePath.replace(/\/$/, "")}` : "/"
+
+        debugInfo.push(`Extracted: filename=${filename}, extension=${extension}, path=${normalizedPath}`)
+
+        // Create or update file record in database
+        if (existingFile && forceImport) {
+          await prisma.file.update({
+            where: {
+              id: existingFile.id,
+            },
+            data: {
+              name: filename,
+              extension,
+              size: BigInt(object.Size || 0),
+              path: normalizedPath,
+            },
+          })
+        } else {
+          await prisma.file.create({
+            data: {
+              name: filename,
+              extension,
+              size: BigInt(object.Size || 0),
+              objectName: object.Key,
+              path: normalizedPath,
+              userId,
+            },
+          })
+        }
+
+        importedCount++
+        debugInfo.push(`Imported file: ${object.Key}`)
+      } catch (error) {
+        errors.push(`Error processing ${object.Key}: ${error}`)
+        debugInfo.push(`Error with ${object.Key}: ${error}`)
+      }
     }
 
     // Log activity
@@ -107,6 +146,8 @@ export async function POST(req: Request) {
       message: "Bucket scan completed",
       importedCount,
       skippedCount,
+      errors: errors.length > 0 ? errors : undefined,
+      debug: debugInfo,
     })
   } catch (error) {
     console.error("Bucket scan error:", error)

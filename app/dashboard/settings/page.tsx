@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -14,6 +14,8 @@ import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, RefreshCw } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 
 const bucketFormSchema = z.object({
   name: z.string().min(1, {
@@ -33,7 +35,7 @@ const bucketFormSchema = z.object({
   bucket: z.string().min(1, {
     message: "Bucket name is required.",
   }),
-  isDefault: z.boolean().default(false).optional(),
+  isDefault: z.boolean().default(false),
 })
 
 export default function SettingsPage() {
@@ -43,6 +45,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [forceImport, setForceImport] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<string[]>([])
+  const [showDebug, setShowDebug] = useState(false)
 
   const form = useForm<z.infer<typeof bucketFormSchema>>({
     resolver: zodResolver(bucketFormSchema),
@@ -173,13 +178,14 @@ export default function SettingsPage() {
 
   const handleScanBucket = async (id: string) => {
     setScanning(true)
+    setDebugInfo([])
     try {
       const response = await fetch("/api/buckets/scan", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ bucketId: id }),
+        body: JSON.stringify({ bucketId: id, forceImport }),
       })
 
       if (!response.ok) {
@@ -188,6 +194,12 @@ export default function SettingsPage() {
       }
 
       const data = await response.json()
+
+      // Save debug info
+      if (data.debug) {
+        setDebugInfo(data.debug)
+        setShowDebug(true)
+      }
 
       toast({
         title: "Bucket scan completed",
@@ -233,6 +245,20 @@ export default function SettingsPage() {
                   </div>
                 ) : buckets.length > 0 ? (
                   <div className="space-y-4">
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox
+                        id="forceImport"
+                        checked={forceImport}
+                        onCheckedChange={(checked) => setForceImport(checked as boolean)}
+                      />
+                      <label
+                        htmlFor="forceImport"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Force import (reimport existing files)
+                      </label>
+                    </div>
+
                     {buckets.map((bucket) => (
                       <Card key={bucket.id}>
                         <CardContent className="p-4">
@@ -288,6 +314,23 @@ export default function SettingsPage() {
                 )}
               </CardContent>
             </Card>
+
+            {showDebug && debugInfo.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Debug Information</CardTitle>
+                  <CardDescription>Details about the bucket scan process</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Textarea className="font-mono text-xs h-64" readOnly value={debugInfo.join("\n")} />
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" onClick={() => setShowDebug(false)}>
+                    Hide Debug Info
+                  </Button>
+                </CardFooter>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
